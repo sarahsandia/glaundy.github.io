@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claudia - IA de Asistencia</title>
+    <style>
+        /* Estilos generales */
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #ffe6f2; /* Fondo rosado claro */
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 500px;
+            text-align: center;
+        }
+
+        header {
+            margin-bottom: 20px;
+        }
+
+        .logo {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 10px;
+            background: #ff66b3;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            color: white;
+            margin: 0 auto 10px;
+        }
+
+        h1 {
+            color: #ff66b3; /* Rosa fuerte */
+            margin: 0;
+        }
+
+        p {
+            color: #666;
+            margin: 5px 0;
+        }
+
+        .chat-box {
+            height: 300px;
+            border: 1px solid #ff99cc; /* Borde rosado */
+            border-radius: 10px;
+            padding: 15px;
+            overflow-y: auto;
+            margin-bottom: 15px;
+            background: #fff0f5; /* Fondo rosado claro */
+            text-align: left;
+        }
+
+        .message {
+            margin-bottom: 10px;
+            padding: 8px 12px;
+            border-radius: 8px;
+            max-width: 80%;
+        }
+
+        .user-message {
+            background: #ff66b3;
+            color: white;
+            margin-left: auto;
+        }
+
+        .ai-message {
+            background: white;
+            border: 1px solid #ff99cc;
+            color: #333;
+        }
+
+        .input-container {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            min-width: 200px;
+            padding: 12px;
+            border: 1px solid #ff99cc;
+            border-radius: 5px;
+            font-size: 16px;
+            outline: none;
+        }
+
+        input[type="text"]:focus {
+            border-color: #ff66b3;
+            box-shadow: 0 0 5px rgba(255, 102, 179, 0.3);
+        }
+
+        button {
+            padding: 12px 20px;
+            border: none;
+            background-color: #ff66b3; /* Rosa fuerte */
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #ff4da1; /* Rosa más oscuro al pasar el mouse */
+        }
+
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        #voice-btn {
+            background-color: #ff3385; /* Rosa más oscuro */
+            min-width: 50px;
+        }
+
+        #voice-btn:hover {
+            background-color: #e60073; /* Rosa más intenso */
+        }
+
+        #voice-btn.listening {
+            background-color: #ff0066;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .error-message {
+            color: #d32f2f;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+
+        @media (max-width: 600px) {
+            .input-container {
+                flex-direction: column;
+            }
+            
+            input[type="text"] {
+                min-width: unset;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">👓</div>
+            <h1>Claudia</h1>
+            <p>Tu asistente inteligente</p>
+        </header>
+        <div class="chat-box" id="chat-box">
+            <div class="message ai-message">
+                ¡Hola! Soy Claudia, tu asistente virtual. ¿En qué puedo ayudarte hoy?
+            </div>
+        </div>
+        <div class="input-container">
+            <input type="text" id="user-input" placeholder="Escribe tu pregunta...">
+            <button id="send-btn">Enviar</button>
+            <button id="voice-btn" title="Hablar">🎤</button>
+        </div>
+        <div id="error-message" class="error-message"></div>
+    </div>
+
+    <script>
+        const chatBox = document.getElementById('chat-box');
+        const userInput = document.getElementById('user-input');
+        const sendBtn = document.getElementById('send-btn');
+        const voiceBtn = document.getElementById('voice-btn');
+        const errorMessage = document.getElementById('error-message');
+
+        // Variables para el reconocimiento de voz
+        let recognition = null;
+        let isListening = false;
+
+        // Función para limpiar mensajes de error
+        function clearError() {
+            errorMessage.textContent = '';
+        }
+
+        // Función para mostrar mensajes de error
+        function showError(message) {
+            errorMessage.textContent = message;
+            setTimeout(clearError, 5000);
+        }
+
+        // Función para obtener respuestas personalizadas
+        function getAIResponse(userMessage) {
+            const message = userMessage.toLowerCase().trim();
+            
+            // Respuestas sobre Glaundy
+            if (message.includes("lema de glaundy")) {
+                return "El lema de Glaundy es: 'Cada paso es seguro'.";
+            }
+
+            if (message.includes("objetivo de glaundy")) {
+                return "El objetivo de Glaundy es proporcionar seguridad a las personas que perdieron la vista totalmente, pudiendo salir libremente sin necesidad de un bastón.";
+            }
+
+            if (message.includes("función de glaundy") || message.includes("funcion de glaundy")) {
+                return "La función de Glaundy es ayudar a las personas que perdieron la vista totalmente a tener una mejor percepción del mundo exterior a través de algo que les dice qué hay frente a ellos y a qué distancia.";
+            }
+
+            // Saludos y conversación general
+            if (message.includes("hola")) {
+                return "¡Hola! ¿Cómo puedo ayudarte el día de hoy?";
+            }
+
+            if (message.includes("como estas") || message.includes("cómo estás")) {
+                return "Muy bien, gracias. ¿Y tú cómo estás?";
+            }
+
+            if (message.includes("como puedo ser feliz") || message.includes("cómo puedo ser feliz")) {
+                return "¡Excelente pregunta! Algunas formas de ser más feliz incluyen: meditar, hacer ejercicio, pasar tiempo con seres queridos, practicar la gratitud, o dedicarte a hobbies que disfrutes. ¿Te gustaría que te dé más consejos específicos?";
+            }
+
+            if (message.includes("que es una sandia") || message.includes("qué es una sandía")) {
+                return "Una sandía es una fruta grande, redonda u ovalada, con cáscara verde y pulpa roja y jugosa. Es muy refrescante y perfecta para el verano. ¿Te gusta la sandía?";
+            }
+
+            // Respuestas de ayuda
+            if (message.includes("ayuda") || message.includes("que puedes hacer") || message.includes("qué puedes hacer")) {
+                return "Puedo ayudarte con información sobre Glaundy, responder preguntas generales, dar consejos de bienestar, y mantener una conversación contigo. ¿Hay algo específico en lo que te gustaría que te ayude?";
+            }
+
+            if (message.includes("gracias")) {
+                return "¡De nada! Estoy aquí para ayudarte siempre que lo necesites.";
+            }
+
+            if (message.includes("adios") || message.includes("adiós") || message.includes("hasta luego")) {
+                return "¡Hasta luego! Que tengas un excelente día.";
+            }
+
+            // Respuesta por defecto
+            return "Lo siento, no entendí completamente tu pregunta. ¿Podrías reformularla o ser más específico? Puedo ayudarte con información sobre Glaundy o responder otras preguntas generales.";
+        }
+
+        // Función para agregar mensajes al chat
+        function addMessageToChat(message, isUser = false) {
+            const messageElement = document.createElement('div');
+            messageElement.className = `message ${isUser ? 'user-message' : 'ai-message'}`;
+            messageElement.textContent = message;
+            chatBox.appendChild(messageElement);
+            chatBox.scrollTop = chatBox.scrollHeight; // Auto-scroll
+        }
+
+        // Función para convertir texto a voz
+        function textToSpeech(text) {
+            try {
+                if ('speechSynthesis' in window) {
+                    const utterance = new SpeechSynthesisUtterance(text);
+                    utterance.lang = 'es-ES';
+                    utterance.rate = 0.9;
+                    utterance.pitch = 1;
+                    speechSynthesis.speak(utterance);
+                }
+            } catch (error) {
+                console.error("Error en síntesis de voz:", error);
+            }
+        }
+
+        // Función para enviar mensaje
+        function sendMessage() {
+            const userMessage = userInput.value.trim();
+            if (userMessage === "") return;
+
+            // Agregar mensaje del usuario
+            addMessageToChat(userMessage, true);
+            userInput.value = '';
+            clearError();
+
+            // Simular tiempo de procesamiento
+            setTimeout(() => {
+                const aiResponse = getAIResponse(userMessage);
+                addMessageToChat(aiResponse, false);
+                textToSpeech(aiResponse);
+            }, 500);
+        }
+
+        // Función para inicializar reconocimiento de voz
+        function initSpeechRecognition() {
+            if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+                showError("El reconocimiento de voz no está disponible en tu navegador.");
+                voiceBtn.disabled = true;
+                return false;
+            }
+
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SpeechRecognition();
+            recognition.lang = 'es-ES';
+            recognition.continuous = false;
+            recognition.interimResults = false;
+
+            recognition.onstart = () => {
+                isListening = true;
+                voiceBtn.classList.add('listening');
+                voiceBtn.textContent = '🔴';
+                clearError();
+            };
+
+            recognition.onresult = (event) => {
+                const userMessage = event.results[0][0].transcript;
+                userInput.value = userMessage;
+                sendMessage();
+            };
+
+            recognition.onend = () => {
+                isListening = false;
+                voiceBtn.classList.remove('listening');
+                voiceBtn.textContent = '🎤';
+            };
+
+            recognition.onerror = (event) => {
+                isListening = false;
+                voiceBtn.classList.remove('listening');
+                voiceBtn.textContent = '🎤';
+                
+                let errorMsg = "Error en el reconocimiento de voz.";
+                switch(event.error) {
+                    case 'no-speech':
+                        errorMsg = "No se detectó voz. Inténtalo de nuevo.";
+                        break;
+                    case 'network':
+                        errorMsg = "Error de conexión. Verifica tu internet.";
+                        break;
+                    case 'not-allowed':
+                        errorMsg = "Permiso denegado para usar el micrófono.";
+                        break;
+                }
+                showError(errorMsg);
+            };
+
+            return true;
+        }
+
+        // Event Listeners
+        sendBtn.addEventListener('click', sendMessage);
+
+        userInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        voiceBtn.addEventListener('click', () => {
+            if (!recognition && !initSpeechRecognition()) {
+                return;
+            }
+
+            if (isListening) {
+                recognition.stop();
+            } else {
+                try {
+                    recognition.start();
+                } catch (error) {
+                    showError("Error al iniciar el reconocimiento de voz.");
+                }
+            }
+        });
+
+        // Inicialización
+        document.addEventListener('DOMContentLoaded', () => {
+            userInput.focus();
+        });
+    </script>
+</body>
+</html>
